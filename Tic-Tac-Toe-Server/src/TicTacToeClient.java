@@ -27,6 +27,7 @@ import javax.imageio.ImageIO;
  * A client for a multiplayer tic-tac-toe game.
  */
 public class TicTacToeClient {
+    private static String ipString;
     //Use of JFrame to establish the display window of the game
     private JFrame frame = new JFrame("Tic Tac Toe");
     //JLabel to display messages from the game(game updates such as whose turn it is)
@@ -109,44 +110,75 @@ public class TicTacToeClient {
      */
     //Plays the game and the use of message prompts help guide the player on the state of the game
     public void play() throws Exception {
-        try {
-            var response = in.nextLine();
-            var mark = response.charAt(8); //Player's mark
-            var opponentMark = mark == 'X' ? 'O' : 'X';
-            frame.setTitle("Tic Tac Toe: Player " + mark);
-            while (in.hasNextLine()) {
-                response = in.nextLine();
-                if (response.startsWith("VALID_MOVE")) {
-                    messageLabel.setText("Valid move, please wait");
-                    currentSquare.setImage(mark); //Display player's move
-                    currentSquare.repaint();
-                } else if (response.startsWith("OPPONENT_MOVED")) {
-                    var loc = Integer.parseInt(response.substring(15));
-                    board[loc].setImage(opponentMark); //Display opponent's move
-                    board[loc].repaint();
-                    messageLabel.setText("Opponent moved, your turn");
-                } else if (response.startsWith("MESSAGE")) {
-                    messageLabel.setText(response.substring(8));
-                } else if (response.startsWith("VICTORY")) {
-                    JOptionPane.showMessageDialog(frame, "You Won!"); //Victory message
-                    break;
-                } else if (response.startsWith("DEFEAT")) {
-                    JOptionPane.showMessageDialog(frame, "You Lost."); //Defeat Message
-                    break;
-                } else if (response.startsWith("TIE")) {
-                    JOptionPane.showMessageDialog(frame, "It's a tie."); //Tie message
-                    break;
-                } else if (response.startsWith("OTHER_PLAYER_LEFT")) {
-                    JOptionPane.showMessageDialog(frame, "Other player left");  //Display opponent disconnecting mid-game
-                    break;
+        boolean replay=true;
+        while (replay) {
+            try {
+                // Wait for the server to send the initial message
+                while (!in.hasNextLine()) {
+                    Thread.sleep(100); // Wait for 100 milliseconds
                 }
+                var response = in.nextLine();
+                var mark = response.charAt(8); //Player's mark
+                var opponentMark = mark == 'X' ? 'O' : 'X';
+                frame.setTitle("Tic Tac Toe: Player " + mark);
+                while (in.hasNextLine()) {
+                    response = in.nextLine();
+                    if (response.startsWith("VALID_MOVE")) {
+                        messageLabel.setText("Valid move, please wait");
+                        currentSquare.setImage(mark); //Display player's move
+                        currentSquare.repaint();
+                    } else if (response.startsWith("OPPONENT_MOVED")) {
+                        var loc = Integer.parseInt(response.substring(15));
+                        board[loc].setImage(opponentMark); //Display opponent's move
+                        board[loc].repaint();
+                        messageLabel.setText("Opponent moved, your turn");
+                    } else if (response.startsWith("MESSAGE")) {
+                        messageLabel.setText(response.substring(8));
+                    } else if (response.startsWith("VICTORY")) {
+                        JOptionPane.showMessageDialog(frame, "You Won!"); //Victory message
+                        break;
+                    } else if (response.startsWith("DEFEAT")) {
+                        JOptionPane.showMessageDialog(frame, "You Lost."); //Defeat Message
+                        break;
+                    } else if (response.startsWith("TIE")) {
+                        JOptionPane.showMessageDialog(frame, "It's a tie."); //Tie message
+                        break;
+                    } else if (response.startsWith("OTHER_PLAYER_LEFT")) {
+                        JOptionPane.showMessageDialog(frame, "Other player left");  //Display opponent disconnecting mid-game
+                        break;
+                    }
+                }
+                // After game ends
+                int choice = JOptionPane.showConfirmDialog(frame, "Do you want to replay the game?", "Replay", JOptionPane.YES_NO_OPTION);
+                replay = (choice == JOptionPane.YES_OPTION);
+
+                // If replay is chosen, reset the game board and start a new game
+                if (replay) {
+                    resetBoard();
+                    out.println("REPLAY");
+                } else {
+                    out.println("QUIT"); //Client session ending, notify server
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
+            } finally {
+                socket.close(); //Close socket
+                frame.dispose(); //Close Frame of client
             }
-            out.println("QUIT"); //Client session ending, notify server
+        }
+    }
+    // Method to reset the game board
+    private void resetBoard(){
+        // Reset the board squares
+        for (Square square : board) {
+            square.label.setIcon(null);
+        }
+        // Reset the message label
+        messageLabel.setText("...");
+        try {
+            main(new String[]{ipString});
         } catch (Exception e) {
             e.printStackTrace();
-        } finally {
-            socket.close(); //Close socket
-            frame.dispose(); //Close Frame of client
         }
     }
     //Inner class that represents each square on the board (nine squares)
