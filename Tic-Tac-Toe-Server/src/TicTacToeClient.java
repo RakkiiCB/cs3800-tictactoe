@@ -22,6 +22,7 @@ import javax.swing.JPanel;
 import javax.swing.Painter;
 
 import javax.imageio.ImageIO;
+
 /**
  * A client for a multiplayer tic-tac-toe game.
  */
