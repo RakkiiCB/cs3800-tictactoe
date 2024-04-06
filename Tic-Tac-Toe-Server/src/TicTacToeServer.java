@@ -37,9 +37,10 @@ class Game {
      * or null if there are no players occupying that cell.
      */
     private Player[] board = new Player[9];
-
+    //In each instance of the game, a board is created with nine cells
     Player currentPlayer;
-
+    //Below, there exists every possible combination of winning the game, in total, there lies 8 possible outcomes of winnning in tic-tac-toe
+    //Arrays are used to make the process of checking for win conditions a lot more clearer
     public boolean hasWinner() {
         return (board[0] != null && board[0] == board[1] && board[0] == board[2])
                 || (board[3] != null && board[3] == board[4] && board[3] == board[5])
@@ -55,6 +56,7 @@ class Game {
      * 
      * @return
      */
+    // Check if the board is filled up (no empty cells), important for cases where players end up typing!
     public boolean boardFilledUp() {
         return Arrays.stream(board).allMatch(p -> p != null);
     }
@@ -64,6 +66,7 @@ class Game {
      * @param location
      * @param player
      */
+    //
     public synchronized void move(int location, Player player) {
         if (player != currentPlayer) {
             throw new IllegalStateException("Not your turn");
@@ -81,17 +84,19 @@ class Game {
      * communication with the client the player has a socket and associated Scanner
      * and PrintWriter.
      */
+
     class Player implements Runnable {
         char mark;
         Player opponent;
         Socket socket;
         Scanner input;
         PrintWriter output;
-
+        //Each player has a dedicated mark(X or O)
         public Player(Socket socket, char mark) {
             this.socket = socket;
             this.mark = mark;
         }
+
 
         @Override
         public void run() {
@@ -110,7 +115,7 @@ class Game {
                 }
             }
         }
-
+        //First player that connects is assigned the X mark
         private void setup() throws IOException {
             input = new Scanner(socket.getInputStream());
             output = new PrintWriter(socket.getOutputStream(), true);
@@ -124,7 +129,7 @@ class Game {
                 opponent.output.println("MESSAGE Your move");
             }
         }
-
+        //Player commands
         private void processCommands() {
             while (input.hasNextLine()) {
                 var command = input.nextLine();
@@ -135,7 +140,7 @@ class Game {
                 }
             }
         }
-
+        //Player move commands
         private void processMoveCommand(int location) {
             try {
                 move(location, this);
