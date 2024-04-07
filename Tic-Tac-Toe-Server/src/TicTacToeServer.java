@@ -2,7 +2,6 @@ import java.io.IOException;
 import java.io.PrintWriter;
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.util.Arrays;
 import java.util.Scanner;
 import java.util.concurrent.Executors;
 
@@ -16,6 +15,7 @@ public class TicTacToeServer {
     public static void main(String[] args) throws Exception {
         try (var listener = new ServerSocket(60429)) {
             System.out.println("Tic Tac Toe Server is Running...");
+            // limit the number of threads (and games) going at once
             var pool = Executors.newFixedThreadPool(200);
             while (true) {
                 Game game = new Game();
@@ -26,9 +26,13 @@ public class TicTacToeServer {
     }
 }
 
+/** 
+ * Game logic and player logic for tic-tac-toe.
+ */
 class Game {
     /** 
-     * Board cells numbered 0-8 as such:
+     * In each instance of the game, a board, represented by an array, 
+     * is created with nine cells numbered 0-8 as such:
      * 0 1 2
      * 3 4 5
      * 6 7 8
@@ -37,66 +41,100 @@ class Game {
      * or null if there are no players occupying that cell.
      */
     private Player[] board = new Player[9];
-    //In each instance of the game, a board is created with nine cells
-    Player currentPlayer;
-    //Below, there exists every possible combination of winning the game, in total, there lies 8 possible outcomes of winnning in tic-tac-toe
-    //Arrays are used to make the process of checking for win conditions a lot more clearer
-    public boolean hasWinner() {
-        return (board[0] != null && board[0] == board[1] && board[0] == board[2])
-                || (board[3] != null && board[3] == board[4] && board[3] == board[5])
-                || (board[6] != null && board[6] == board[7] && board[6] == board[8])
-                || (board[0] != null && board[0] == board[3] && board[0] == board[6])
-                || (board[1] != null && board[1] == board[4] && board[1] == board[7])
-                || (board[2] != null && board[2] == board[5] && board[2] == board[8])
-                || (board[0] != null && board[0] == board[4] && board[0] == board[8])
-                || (board[2] != null && board[2] == board[4] && board[2] == board[6]);
-    }
 
-    /**
-     * 
-     * @return
-     */
-    // Check if the board is filled up (no empty cells), important for cases where players end up typing!
-    public boolean boardFilledUp() {
-        return Arrays.stream(board).allMatch(p -> p != null);
-    }
+    // All possible win conditions
+    private int[][] winConditions = {
+        {0, 1, 2},
+        {3, 4, 5},
+        {6, 7, 8},
+        {0, 3, 6},
+        {1, 4, 7},
+        {2, 5, 8},
+        {0, 4, 8},
+        {2, 4, 6}
+    };
 
+    Player currPlayer;
+    
     /**
-     * 
-     * @param location
-     * @param player
+     * Checks all 8 possible win conditions from the board.
+     * @return Whether any of the 8 win conditions contains the same
+     *         references to a single player.
      */
-    //
-    public synchronized void move(int location, Player player) {
-        if (player != currentPlayer) {
-            throw new IllegalStateException("Not your turn");
-        } else if (player.opponent == null) {
-            throw new IllegalStateException("You don't have an opponent yet");
-        } else if (board[location] != null) {
-            throw new IllegalStateException("Cell already occupied");
+    public boolean checkWin() {
+        for (int[] w : winConditions) {
+            if (board[w[0]] == null) { continue; }
+            if (board[w[0]] == board[w[1]] 
+                    && board[w[0]] == board[w[2]]) {
+                return true;
+            } 
         }
-        board[location] = currentPlayer;
-        currentPlayer = currentPlayer.opponent;
+
+        return false;
+    }
+
+    /**
+     * Check if the board is filled up.
+     * A filled-up board results in a tie game.
+     * @return If all 9 spaces of the board are filled.
+     */
+    public boolean checkTie() {
+        for (int i = 0; i < board.length; ++i) {
+            if (board[i] == null) return false;
+        }
+        
+        return true;
+    }
+
+    /**
+     * Processes the move given by a player.
+     * If the player attempting to make a move isn't the current player
+     * (in other words, it's not their turn), or if a cell is already
+     * occupied, the move will be rejected.
+     * Any move without a second player present will also be rejected.
+     * If the move is not rejected, the move will be stored and
+     * the opponent player will then take their turn.
+     * @param location The selected cell from the moving player.
+     * @param player The player attempting the move.
+     */
+    public synchronized void move(int location, Player player) {
+        if (player != currPlayer) {
+            throw new IllegalStateException(
+                "Not your turn"
+            );
+        } else if (player.opponent == null) {
+            throw new IllegalStateException(
+                "You don't have an opponent yet"
+            );
+        } else if (board[location] != null) {
+            throw new IllegalStateException(
+                "Cell already occupied"
+            );
+        }
+
+        // mark the cell with a reference to the current player
+        board[location] = currPlayer;
+
+        // pass the turn to the opponent
+        currPlayer = currPlayer.opponent;
     }
 
     /**
      * A Player is identified by a character 'X' or 'O'. For
-     * communication with the client the player has a socket and associated Scanner
-     * and PrintWriter.
+     * communication with the client, the player has a socket
+     * and an associated Scanner and PrintWriter.
      */
-
     class Player implements Runnable {
         char mark;
         Player opponent;
         Socket socket;
         Scanner input;
         PrintWriter output;
-        //Each player has a dedicated mark(X or O)
+
         public Player(Socket socket, char mark) {
             this.socket = socket;
             this.mark = mark;
         }
-
 
         @Override
         public void run() {
@@ -112,24 +150,29 @@ class Game {
                 try {
                     socket.close();
                 } catch (IOException e) {
+                    e.printStackTrace();
                 }
             }
         }
-        //First player that connects is assigned the X mark
+        
+        // Setup player
         private void setup() throws IOException {
             input = new Scanner(socket.getInputStream());
             output = new PrintWriter(socket.getOutputStream(), true);
             output.println("WELCOME " + mark);
+            
+            // First player that connects is assigned the X mark
             if (mark == 'X') {
-                currentPlayer = this;
+                currPlayer = this;
                 output.println("MESSAGE Waiting for opponent to connect");
             } else {
-                opponent = currentPlayer;
+                opponent = currPlayer;
                 opponent.opponent = this;
                 opponent.output.println("MESSAGE Your move");
             }
         }
-        //Player commands
+
+        // Player commands
         private void processCommands() {
             while (input.hasNextLine()) {
                 var command = input.nextLine();
@@ -140,16 +183,17 @@ class Game {
                 }
             }
         }
-        //Player move commands
+
+        // Player move commands
         private void processMoveCommand(int location) {
             try {
                 move(location, this);
                 output.println("VALID_MOVE");
                 opponent.output.println("OPPONENT_MOVED " + location);
-                if (hasWinner()) {
+                if (checkWin()) {
                     output.println("VICTORY");
                     opponent.output.println("DEFEAT");
-                } else if (boardFilledUp()) {
+                } else if (checkTie()) {
                     output.println("TIE");
                     opponent.output.println("TIE");
                 }

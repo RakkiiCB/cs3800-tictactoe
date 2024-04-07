@@ -1,5 +1,3 @@
-import java.awt.Font;
-import java.awt.Graphics;
 import java.awt.Color;
 import java.awt.GridLayout;
 import java.awt.GridBagLayout;
@@ -19,31 +17,29 @@ import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
-import javax.swing.Painter;
 
 import javax.imageio.ImageIO;
 
 /**
- * A client for a multiplayer tic-tac-toe game.
+ * A client for a multiplayer tic-tac-toe game loosely based on the
+ * example provided by cs.lmu.edu with custom visual changes.
+ * Two separate instances connect to each other via the server
+ * to play tic-tac-toe.
  */
 public class TicTacToeClient {
     private static String ipString;
-    //Use of JFrame to establish the display window of the game
+    // Display window of the game
     private JFrame frame = new JFrame("Tic Tac Toe");
-    //JLabel to display messages from the game(game updates such as whose turn it is)
-    private JLabel messageLabel = new JLabel("...");
+    // JLabel to display messages from the game
+    private JLabel messageLabel = new JLabel("Standby...");
     // Use of array as the tic-tac-toe board
-    private Square[] board = new Square[9];
+    private Cell[] board = new Cell[9];
     //Square that is clicked by player
-    private Square currentSquare;
+    private Cell currCell;
     //Image assets
-    private static BufferedImage boardImage;
     private static BufferedImage redX;
-	private static BufferedImage blueX;
-	private static BufferedImage redCircle;
 	private static BufferedImage blueCircle;
 
-    private Painter painter;
     //Socket to communicate with server
     private Socket socket;
 
@@ -53,52 +49,51 @@ public class TicTacToeClient {
     //Send output to server
     private PrintWriter out;
 
-    //Window size
     private static final int WINDOW_WIDTH = 506;
     private static final int WINDOW_HEIGHT = 527;
 
-    private int lenOfSpace = 160;
-
-    //Constructor
     public TicTacToeClient(String serverAddress) throws Exception {
-
-        //Server connection
+        // Server connection
         socket = new Socket(serverAddress, 60429);
         in = new Scanner(socket.getInputStream());
         out = new PrintWriter(socket.getOutputStream(), true);
 
-        //loads images
         loadImages();
 
-        //Message label at the bottom
+        // Message label at the bottom
         messageLabel.setBackground(Color.lightGray);
         frame.getContentPane().add(messageLabel, BorderLayout.SOUTH);
 
-        //Game board panel
-        var boardPanel = new JPanel();
+        // Game board panel
+        JPanel boardPanel = new JPanel();
         boardPanel.setBackground(Color.black);
         boardPanel.setLayout(new GridLayout(3, 3, 2, 2));
-        for (var i = 0; i < board.length; i++) {
-            final int j = i;
-            board[i] = new Square();
+        
+        for (int i = 0; i < board.length; i++) {
+            final int CURR_MOVE = i;
+
+            board[i] = new Cell();
             board[i].addMouseListener(new MouseAdapter() {
                 public void mousePressed(MouseEvent e) {
-                    currentSquare = board[j];
-                    out.println("MOVE " + j); //Server is notified of player's move
+                    // Set moved cell
+                    currCell = board[CURR_MOVE];
+                    // Notify server of player move
+                    out.println("MOVE " + CURR_MOVE); 
                 }
             });
+
             boardPanel.add(board[i]);
         }
+
         frame.getContentPane().add(boardPanel, BorderLayout.CENTER);
     }
 
-    //Load game images
+    /** 
+     * Loads the custom X and O images provided in the source folder.
+     */
     private void loadImages() {
         try {
-			boardImage = ImageIO.read(getClass().getResourceAsStream("/tictactoe-board.png"));
 			redX = ImageIO.read(getClass().getResourceAsStream("/red-x.png"));
-			redCircle = ImageIO.read(getClass().getResourceAsStream("/red-circle.png"));
-			blueX = ImageIO.read(getClass().getResourceAsStream("/blue-x.png"));
 			blueCircle = ImageIO.read(getClass().getResourceAsStream("/blue-circle.png"));
 		} catch (IOException e) {
 			e.printStackTrace();
@@ -106,86 +101,121 @@ public class TicTacToeClient {
     }
 
     /**
-     * 
+     * Initiates the game and processes messages sent to and from
+     * each player's client to manage each game state.
      */
-    //Plays the game and the use of message prompts help guide the player on the state of the game
     public void play() throws Exception {
-        boolean replay=true;
+        boolean replay = true;
         while (replay) {
             try {
                 // Wait for the server to send the initial message
                 while (!in.hasNextLine()) {
-                    Thread.sleep(100); // Wait for 100 milliseconds
+                    Thread.sleep(100);
                 }
-                var response = in.nextLine();
-                var mark = response.charAt(8); //Player's mark
-                var opponentMark = mark == 'X' ? 'O' : 'X';
+
+                String response = in.nextLine();
+                char mark = response.charAt(8);
+                char opponentMark = mark == 'X' ? 'O' : 'X';
+
                 frame.setTitle("Tic Tac Toe: Player " + mark);
+
+                // Parse different types of messages coming in
                 while (in.hasNextLine()) {
                     response = in.nextLine();
+                    
                     if (response.startsWith("VALID_MOVE")) {
+                        //Display player's move
                         messageLabel.setText("Valid move, please wait");
-                        currentSquare.setImage(mark); //Display player's move
-                        currentSquare.repaint();
+                        currCell.setImage(mark); 
+                        currCell.repaint();
                     } else if (response.startsWith("OPPONENT_MOVED")) {
-                        var loc = Integer.parseInt(response.substring(15));
-                        board[loc].setImage(opponentMark); //Display opponent's move
+                         //Display opponent's move
+                        int loc = Integer.parseInt(
+                            response.substring(15)
+                        );
+                        board[loc].setImage(opponentMark);
                         board[loc].repaint();
-                        messageLabel.setText("Opponent moved, your turn");
+                        messageLabel.setText(
+                            "Opponent moved, your turn"
+                        );
                     } else if (response.startsWith("MESSAGE")) {
-                        messageLabel.setText(response.substring(8));
+                        messageLabel.setText(
+                            response.substring(8)
+                        );
                     } else if (response.startsWith("VICTORY")) {
-                        JOptionPane.showMessageDialog(frame, "You Won!"); //Victory message
+                        JOptionPane.showMessageDialog(
+                            frame, "You Won!"
+                        );
+
                         break;
                     } else if (response.startsWith("DEFEAT")) {
-                        JOptionPane.showMessageDialog(frame, "You Lost."); //Defeat Message
+                        JOptionPane.showMessageDialog(
+                            frame, "You Lost."
+                        );
+                        
                         break;
                     } else if (response.startsWith("TIE")) {
-                        JOptionPane.showMessageDialog(frame, "It's a tie."); //Tie message
+                        JOptionPane.showMessageDialog(
+                            frame, "It's a tie."
+                        );
+
                         break;
                     } else if (response.startsWith("OTHER_PLAYER_LEFT")) {
-                        JOptionPane.showMessageDialog(frame, "Other player left");  //Display opponent disconnecting mid-game
+                        JOptionPane.showMessageDialog(
+                            frame, "Opponent disconnnected."
+                        );
+
                         break;
                     }
                 }
-                // After game ends
-                int choice = JOptionPane.showConfirmDialog(frame, "Do you want to replay the game?", "Replay", JOptionPane.YES_NO_OPTION);
+
+                // Prompt the players to start a new game or quit.
+                int choice = JOptionPane.showConfirmDialog(
+                    frame, 
+                    "Do you want to replay the game?", 
+                    "Replay", JOptionPane.YES_NO_OPTION
+                );
                 replay = (choice == JOptionPane.YES_OPTION);
 
-                // If replay is chosen, reset the game board and start a new game
                 if (replay) {
                     resetBoard();
                     out.println("REPLAY");
                 } else {
-                    out.println("QUIT"); //Client session ending, notify server
+                    out.println("QUIT"); // Client session ending, notify server
                 }
             } catch (Exception e) {
                 e.printStackTrace();
             } finally {
-                socket.close(); //Close socket
-                frame.dispose(); //Close Frame of client
+                socket.close();
+                frame.dispose();
             }
         }
     }
-    // Method to reset the game board
+
+    /** 
+     * Resets the board and starts a new game.
+     */
     private void resetBoard(){
-        // Reset the board squares
-        for (Square square : board) {
-            square.label.setIcon(null);
+        // Reset all the cells on the board
+        for (Cell cell : board) {
+            cell.label.setIcon(null);
         }
         // Reset the message label
-        messageLabel.setText("...");
+        messageLabel.setText("Standby...");
         try {
             main(new String[]{ipString});
         } catch (Exception e) {
             e.printStackTrace();
         }
     }
-    //Inner class that represents each square on the board (nine squares)
-    static class Square extends JPanel {
+
+    /** 
+     * Visual representation of a cell on the tic-tac-toe board.
+     */
+    static class Cell extends JPanel {
         JLabel label = new JLabel();
 
-        public Square() {
+        public Cell() {
             setBackground(Color.white);
             setLayout(new GridBagLayout());
             add(label);
@@ -200,7 +230,14 @@ public class TicTacToeClient {
             }
         }
     }
-    //Main Method that starts the client
+
+    /** 
+     * Creates an instance of a client using the given IP address.
+     * If the user doesn't provide a server IP in the command
+     * line, prompt them in the program itself.
+     * Otherwise, the first argument provided in the command line
+     * will be used as the server IP.
+     */
     public static void main(String[] args) throws Exception {
 
         String ipString = "";
@@ -211,38 +248,50 @@ public class TicTacToeClient {
                     "(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$";
         final Pattern IPv4_PATTERN = Pattern.compile(IPV4_REGEX);    
 
-        /** 
-         * If the user doesn't provide a server IP in the command
-         * line, prompt them in the program itself.
-         * Otherwise, the argument provided in the command line
-         * will be used as the server IP.
-         */
+        // Prompt user for server IP method if none is given beforehand
     	if (args.length == 0) {
             kb = new Scanner(System.in);
     		System.out.println("Please enter the server IP: ");
 
-            String ip = kb.nextLine();
-    		Matcher matcher = IPv4_PATTERN.matcher(ip);
-
-            if (matcher.matches()) {
-                ipString = ip;
-            } else {
-                System.err.println(
-                    "The IP is invalid. Please enter a valid IP\n"
-                    + "or pass a valid server IP as a the sole command "
-                    + "line argument."
-                );
-
-                return;
-            }
-    	} else if (args.length == 1){
+            ipString = kb.nextLine();
+    	} else {
             ipString = args[0];
-        } else {
-            System.err.println("Pass the server IP as the sole command line argument.");
+        }
+
+        /** 
+         * Print error message if more than one argument is provided,
+         * but let it slide and just accept the first argument.
+         */
+        if (args.length > 1) {
+            System.out.println(
+                "Only one command line argument is required.\n" +
+                "The first argument will be used as the server IP."
+            );
+
+            return;
+        }
+        
+        // take out leading/trailing whitespace
+        ipString = ipString.strip(); 
+
+        /** 
+         * End program immediately if the IP address is invalid.
+         * "localhost" is a valid address, so that's an exception
+         * to the ip string format matching.
+         */
+        Matcher matcher = IPv4_PATTERN.matcher(ipString);
+
+
+        if (!matcher.matches() && !ipString.equals("localhost")) {
+            System.err.println(
+                "The IP is invalid. Please enter a valid IP\n"
+                + "or pass a valid server IP as the first command "
+                + "line argument."
+            );
+
             return;
         }
 
-        //Creates the instance of a client using the given IP address to connect
         TicTacToeClient client = new TicTacToeClient(ipString);
         client.frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         client.frame.setSize(WINDOW_WIDTH, WINDOW_HEIGHT);
