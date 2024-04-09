@@ -13,7 +13,7 @@ import java.util.concurrent.Executors;
  */
 public class TicTacToeServer {
     public static void main(String[] args) throws Exception {
-        try (var listener = new ServerSocket(60429)) {
+        try (ServerSocket listener = new ServerSocket(60429)) {
             System.out.println("Tic Tac Toe Server is Running...");
             // limit the number of threads (and games) going at once
             var pool = Executors.newFixedThreadPool(200);
