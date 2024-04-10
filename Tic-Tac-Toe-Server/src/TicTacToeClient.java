@@ -168,21 +168,7 @@ public class TicTacToeClient {
                         break;
                     }
                 }
-
-                // Prompt the players to start a new game or quit.
-                int choice = JOptionPane.showConfirmDialog(
-                    frame, 
-                    "Do you want to replay the game?", 
-                    "Replay", JOptionPane.YES_NO_OPTION
-                );
-                replay = (choice == JOptionPane.YES_OPTION);
-
-                if (replay) {
-                    resetBoard();
-                    out.println("REPLAY");
-                } else {
-                    out.println("QUIT"); // Client session ending, notify server
-                }
+                out.println("QUIT"); // Client session ending, notify server
             } catch (Exception e) {
                 e.printStackTrace();
             } finally {
