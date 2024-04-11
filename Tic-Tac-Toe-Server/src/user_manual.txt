@@ -1,13 +1,13 @@
 [Running the Server]
-On the command line, type "java TicTacToeServer.java" (without the quotes) and hit Enter
+On the command line, type "java TicTacToeServer.java" (without the quotes) and hit Enter.
 Wait a bit, then the server will start running.
-When it displays "Tic Tac Toe Server is running..." this means it's ready.
+When it displays "Tic Tac Toe Server is running..." this means it is ready for clients to connect.
 
 [Running the Client]
 Without command line arguments:
-On the command line, type "java TicTacToeClient.java" (without the quotes) and hit Enter
+On the command line, type "java TicTacToeClient.java" (without the quotes) and hit Enter.
 The program will prompt the user to enter a valid IP address in the format A.B.C.D 
-where A, B, C, and D are numbers between 0 and 255, inclusively.
+where A, B, C, and D are numbers between 0 and 255, inclusive.
 The user can also type in "localhost" (without the quotes) and it will be accepted.
 The program will exit prematurely if an invalid IP address is provided.
 If a valid IP address is provided, the client will use the inputed IP address to
@@ -24,8 +24,7 @@ connect to the TicTacToeServer.
 If the TicTacToeServer is not running, the client will refuse connection and prematurely exit.
 
 [Using the server]
-The server opens a ServerSocket on port 60429. 
-Leave it running to allow the clients to connect to each other. 
+Leave it running to allow clients to connect to each other. 
 
 [Using the client]
 Once a successful connection to the TicTacToeServer is made, the client will show
@@ -36,8 +35,12 @@ The first person (in a 2-player pair) to connect to the server will go first and
 and the second person to connect will go second and be assigned the "O" mark.
 A third person connecting to the server will create a new pair which will wait for a fourth person to connect.
 
-Within the game, when it is your turn, you can click on any unoccupied cell to place your mark and end your turn.
+[Gameplay]
+When it is your turn, you can click on any unoccupied cell to place your mark and end your turn.
 The game will continue until a horizontal, vertical, or diagonal line of the same mark is formed,
 or when all 9 cells are filled without a line of the same mark.
 The game over dialog box will announce your win, loss, or tie.
-After the game ends, the program will exit for both players.
+After clicking the game over dialog box, the application will quit.
+
+If the opponent disconnects in the middle of a game, your client will be notified 
+and you will no longer be able to make moves.

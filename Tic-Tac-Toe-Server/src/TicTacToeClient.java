@@ -27,26 +27,25 @@ import javax.imageio.ImageIO;
  * to play tic-tac-toe.
  */
 public class TicTacToeClient {
-    private static String ipString;
     // Display window of the game
     private JFrame frame = new JFrame("Tic Tac Toe");
     // JLabel to display messages from the game
     private JLabel messageLabel = new JLabel("Standby...");
     // Use of array as the tic-tac-toe board
     private Cell[] board = new Cell[9];
-    //Square that is clicked by player
+    // Square that is clicked by player
     private Cell currCell;
-    //Image assets
+    // Image assets
     private static BufferedImage redX;
 	private static BufferedImage blueCircle;
 
-    //Socket to communicate with server
+    // Socket to communicate with server
     private Socket socket;
 
     private static Scanner kb;
-    //Read input from server
+    // Read input from server
     private Scanner in;
-    //Send output to server
+    // Send output to server
     private PrintWriter out;
 
     private static final int WINDOW_WIDTH = 506;
@@ -175,23 +174,6 @@ public class TicTacToeClient {
                 socket.close();
                 frame.dispose();
             }
-        }
-    }
-
-    /** 
-     * Resets the board and starts a new game.
-     */
-    private void resetBoard(){
-        // Reset all the cells on the board
-        for (Cell cell : board) {
-            cell.label.setIcon(null);
-        }
-        // Reset the message label
-        messageLabel.setText("Standby...");
-        try {
-            main(new String[]{ipString});
-        } catch (Exception e) {
-            e.printStackTrace();
         }
     }
 
